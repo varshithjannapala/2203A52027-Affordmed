@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stock Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f4f4f4;
+    }
+    h2 {
+      text-align: center;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    select {
+      padding: 0.5rem;
+    }
+    canvas {
+      display: block;
+      margin: 1rem auto;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h2>Live Stock Dashboard</h2>
+
+  <div class="controls">
+    <select id="stockList">
+      <option value="">Loading stocks...</option>
+    </select>
+
+    <select id="timeFrame">
+      <option value="5">5 Min</option>
+      <option value="15">15 Min</option>
+      <option value="30">30 Min</option>
+      <option value="60">1 Hour</option>
+    </select>
+  </div>
+
+  <canvas id="chart" width="900" height="300"></canvas>
+  <canvas id="heatmap" width="900" height="300"></canvas>
+
+  <script>
+    const stockList = document.getElementById('stockList');
+    const timeFrame = document.getElementById('timeFrame');
+    let chartInstance, heatmapInstance;
+
+    async function fetchStocks() {
+      try {
+        const res = await fetch('http://20.244.56.144/evaluation-service/stocks');
+        const data = await res.json();
+
+        stockList.innerHTML = '';
+        Object.entries(data.stocks).forEach(([name, symbol]) => {
+          const option = document.createElement('option');
+          option.value = symbol;
+          option.textContent = ${name} (${symbol});
+          stockList.appendChild(option);
+        });
+
+        updateViews();
+      } catch (err) {
+        console.error("Could not load stock list", err);
+        stockList.innerHTML = '<option>Error loading stocks</option>';
+      }
+    }
+
+    function generateMockData(points = 10) {
+      return Array.from({ length: points }, (_, i) => ({
+        x: i,
+        y: Math.floor(Math.random() * 100) + 100
+      }));
+    }
+
+    function renderChart(data, label) {
+      const ctx = document.getElementById('chart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label,
+            data,
+            borderColor: 'blue',
+            fill: false
+          }]
+        },
+        options: {
+          responsive: false,
+          scales: {
+            x: { type: 'linear', position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    function renderHeatmap(stock, time) {
+      const ctx = document.getElementById('heatmap').getContext('2d');
+      if (heatmapInstance) heatmapInstance.destroy();
+      heatmapInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Volatility', 'Momentum', 'RSI', 'Beta'],
+          datasets: [{
+            label: Metrics (${time} min),
+            data: Array(4).fill().map(() => Math.random() * 100),
+            backgroundColor: ['red', 'green', 'blue', 'orange']
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function updateViews() {
+      const stock = stockList.value;
+      const time = timeFrame.value;
+
+      if (stock) {
+        const data = generateMockData(Number(time));
+        renderChart(data, ${stock} over ${time} minutes);
+        renderHeatmap(stock, time);
+      }
+    }
+
+    stockList.addEventListener('change', updateViews);
+    timeFrame.addEventListener('change', updateViews);
+
+    fetchStocks();
+  </script>
+</body>
+</html>
